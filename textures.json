@@ -815,6 +815,7 @@
     "weeping_vines": "weeping_vines",
     "weeping_vines_plant": "weeping_vines_plant"
   },
+
   "items": {
     "acacia_door": "door_acacia",
     "axolotl_bucket": "bucket_axolotl",
@@ -1181,6 +1182,7 @@
     "warped_fungus_on_a_stick": "warped_fungus_on_a_stick",
     "wheat": "wheat"
   },
+
   "entity": {
     "bed\\black": "bed\\black",
     "bed\\blue": "bed\\blue",
@@ -1236,6 +1238,7 @@
     "trident": "trident",
     "trident_riptide": "trident_riptide"
   },
+
   "models": {
     "armor\\chainmail_layer_1":"armor\\chain_1",
     "armor\\chainmail_layer_2":"armor\\chain_2",
@@ -1249,9 +1252,11 @@
     "armor\\netherite_layer_2":"armor\\netherite_2",
     "armor\\turtle_layer_1":"armor\\turtle_1"
   },
+  
   "particle": {
     "particles": "particles"
   },
+
   "effect": {
     "absorption": "absorption_effect",
     "bad_omen": "bad_omen_effect",

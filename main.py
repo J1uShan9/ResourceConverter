@@ -150,7 +150,7 @@ class ResourceConverter(Init):
         for root, dirs, files in os.walk(self.input_dir):
             for filename in files:
                 input_image_path = os.path.join(root, filename)
-                    
+                
                 # Check Image Type
                 if not filename.lower().endswith('.png'):
                     continue
@@ -170,7 +170,7 @@ class ResourceConverter(Init):
                         output_image_path = os.path.join(output_sub_folder, 'environment', filename)
                         output_image_dir = os.path.dirname(output_image_path)
                         self.pathCheck(output_image_dir)
-
+                        
                         # Save Image
                         shutil.copy2(input_image_path, output_image_path)
                         print(f"[Destroy Stage] Image converted into {output_image_path}")
@@ -290,7 +290,7 @@ class ResourceConverter(Init):
                         name_3 = [
                             'bubble', 'bubble_pop'
                         ]
-
+                        
                         for i in range(2):
                             
                             x = 16 + i * offset_width
@@ -329,7 +329,7 @@ class ResourceConverter(Init):
                             cropped_image = original_image.crop(box)
                             
                             if not self.transparentCheck(cropped_image):
-                            
+                                
                                 # Construct Output Image Path
                                 output_image_dir = os.path.join(output_sub_folder, 'ui')
                                 self.pathCheck(output_image_dir)
@@ -339,7 +339,7 @@ class ResourceConverter(Init):
                                 cropped_image.save(output_image_path)
                                 print(f"[Icons] Image cropped and saved into {output_image_path}")
                                 continue
-                        
+                            
                             print(f"[Icons] Wrong transparent image has deleted: {name}")
 
 
@@ -398,7 +398,7 @@ class ResourceConverter(Init):
                         cropped_image = original_image.crop(box)
                         
                         self.transparentCheck(cropped_image)
-
+                        
                         # Construct Output Image Path
                         output_image_dir = os.path.join(output_sub_folder, 'ui')
                         self.pathCheck(output_image_dir)
