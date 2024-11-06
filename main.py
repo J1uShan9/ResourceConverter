@@ -238,7 +238,7 @@ class ResourceConverter(Init):
                     with Image.open(input_image_path) as original_image:
                         width, height = original_image.size
                         
-                        if width != height or height > 1024:
+                        if width != height or height > 2048:
                             raise Exception(f'Wrong Format in {filename}')
                         
                         rate = width // 256
