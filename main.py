@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+
 from PIL import Image
 
 
@@ -10,59 +11,61 @@ class Init:
     def __init__(self):
         self.input_dir = 'Input'
         self.output_dir = 'Output'
-        self.textures_map = 'textures.json'
+        self.textures_mapping_path = 'textures.json'
 
 
     def systemVaildCheck(self) -> bool:
-        if os.sep == '\\':
-            return True
-        elif os.sep == '/':
-            return False
+        """
+        Windows: True
+        Linux: False
+        """
+        return os.sep == '\\'
 
-
-    def pathCheck(self, path: str) -> None:
+    def pathCreateCheck(self, path: str) -> None:
         if not os.path.exists(path):
             os.makedirs(path)
-
-
-    def pathInit(self, path: str) -> str:
-        path = path.replace(' ','').replace('!','')
-        return re.sub(r'§.', '', path)
-
-
+     
     def transparentCheck(self, img) -> bool:
-        if img.mode == 'RGBA':
-            pass
-        else:
+        if img.mode != 'RGBA':
             img = img.convert('RGBA')
-
+        
         for x in range(img.width):
             for y in range(img.height):
                 r, g, b, a = img.getpixel((x, y))
                 if not a == 0:
                     return False
         return True
-
+    
+    def pathInit(self, path: str) -> str:
+        path = path.replace(' ','').replace('!','')
+        return re.sub(r'§.', '', path)
 
     def dirInit(self) -> None:
-        if os.path.exists(self.output_dir):
-            try:
-                shutil.rmtree(self.output_dir)
-            except OSError as e:
-                print(f"[Error] An error occurred while deleting the directory {self.output_dir}: {e.strerror}")
-        else:
-            os.makedirs(self.output_dir)
+        self.pathCreateCheck(self.output_dir)
 
         if os.path.exists(self.input_dir):
-            if os.listdir(self.input_dir):
-                return
-            print("Put your resource pack in input folder to run the program.")
-            exit()
+            if not os.listdir(self.input_dir):
+                print("Put your resource pack in input folder to run the program.")
+                exit()
         else:
-            os.makedirs(self.input_dir)
+            self.pathCreateCheck(self.input_dir)
             print("Put your resource pack in input folder to run the program.")
             exit()
+            
+    def mappingInit(self) -> dict:
+        with open(self.textures_mapping_path, 'r', encoding='utf-8') as f:
+            raw_mapping : dict = json.load(f)
+        new_mapping = {}
+        for key, value in raw_mapping.items():
+            if key.startswith('textures/block/'):
+                new_key = key.replace('textures/block/', 'textures/blocks/')
+                new_mapping[new_key] = value
+            if key.startswith('textures/item/'):
+                new_key = key.replace('textures/item/', 'textures/items/')
+                new_mapping[new_key] = value
 
+        raw_mapping.update(new_mapping)
+        return raw_mapping
 
     def splitImagePath(self, relative_path, subpath: str ='textures') -> str:
         path_components = relative_path.split(os.sep)
@@ -80,105 +83,45 @@ class ResourceConverter(Init):
     
     def __init__(self):
         super().__init__()
+        self.texture_mapping = self.mappingInit()
+        if self.systemVaildCheck():
+            self.texture_mapping = json.dumps(self.texture_mapping).replace('/', '\\\\')
+            self.texture_mapping = json.loads(self.texture_mapping)
 
 
-    def textures_converter(self) -> None:
+    def textures_convert(self) -> None:
         
-        def _textures_convert_output(textures_tuplelist, base_type, save_type) -> None:
-
-            for _, (je, be) in enumerate(textures_tuplelist):
-                
-                if not os.path.join('textures', base_type) in root:
-                    continue
-                
-                # Convert Mapped Image Path
-                image_name = self.splitImagePath(input_image_path)
-                base_image_path = os.path.splitext(image_name)[0].split(os.sep)[1:]
-                base_image_name = os.path.join(*base_image_path)
-                
-                if base_image_name == je:
-                    base_image_name = be
-                    
-                    # Construct Output Image Path
-                    output_image_path = os.path.join(output_sub_folder, save_type, f"{base_image_name}.png")
-                    output_image_dir = os.path.dirname(output_image_path)
-                    self.pathCheck(output_image_dir)
-                    
-                    # Save Image
-                    shutil.copy2(input_image_path, output_image_path)
-                    print(f"[{base_type.capitalize()}] Image converted into {output_image_path}")
-
-        # Load Textures Mappings
-        with open(self.textures_map, 'r') as f:
-            data = json.load(f)
-            
-            # System Path Check
-            if not self.systemVaildCheck():
-                data = json.dumps(data).replace('\\', '/').replace('//', '/')
-                data = json.loads(data)
-            
-            # Init Mapping TupleList
-            blocks = list(data["blocks"].items())
-            items = list(data["items"].items())
-            entity = list(data["entity"].items())
-            models = list(data["models"].items())
-            particle = list(data["particle"].items())
-            effect = list(data['effect'].items())
-
-            for root, dirs, files in os.walk(self.input_dir):
-                for filename in files:
-                    input_image_path = os.path.join(root, filename)
-                    
-                    # Check Image Type
-                    if not filename.lower().endswith('.png') or not 'textures' in root:
-                        continue
-                    
-                    # Construct Output Sub Folder
-                    relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
-                    output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
-                    
-                    _textures_convert_output(blocks, 'blocks', 'blocks')
-                    _textures_convert_output(items, 'items', 'items')
-                    _textures_convert_output(entity, 'entity', 'entity')
-                    _textures_convert_output(models, 'models', 'models')
-                    _textures_convert_output(particle, 'particle', 'particle')
-                    _textures_convert_output(effect, 'mob_effect', 'ui')
-
-
-    def destroystage_converter(self) -> None:
-        
-        for root, dirs, files in os.walk(self.input_dir):
+        for root, _, files in os.walk(self.input_dir):
             for filename in files:
                 input_image_path = os.path.join(root, filename)
                 
                 # Check Image Type
-                if not filename.lower().endswith('.png'):
-                    continue
-                if not 'textures' in root:
+                if not filename.lower().endswith('.png') or not 'textures' in root:
                     continue
                 
-                # Find Image File: Destroy Stage 0-9
-                for i in range(10):
-                    if filename == f'destroy_stage_{i}.png':
-                        input_image_path = os.path.join(root, filename)
-                        
-                        # Construct Output Sub Folder
-                        relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
-                        output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
-                        
-                        # Construct Output Image Path
-                        output_image_path = os.path.join(output_sub_folder, 'environment', filename)
-                        output_image_dir = os.path.dirname(output_image_path)
-                        self.pathCheck(output_image_dir)
-                        
-                        # Save Image
-                        shutil.copy2(input_image_path, output_image_path)
-                        print(f"[Destroy Stage] Image converted into {output_image_path}")
+                # Construct Output Sub Folder
+                relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
+                output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
+                
+                # Process Image
+                for (base_type, target_type) in self.texture_mapping.items():
+                    if base_type in input_image_path:
+                        self.textures_process(base_type, target_type, input_image_path, output_sub_folder)
 
-
-    def cubemap_converter(self) -> None:
+    def textures_process(self, base_type: str, target_type: str, input_image_path: str, output_sub_folder: str) -> None:
         
-        for root, dirs, files in os.walk(self.input_dir):
+        # Construct Output Image Path
+        output_image_path = os.path.join(output_sub_folder, target_type)
+        self.pathCreateCheck(os.path.dirname(output_image_path))
+        
+        # Save Image
+        shutil.copy2(input_image_path, output_image_path)
+        print(f"[{base_type.split(os.sep)[0].capitalize()}] Image converted into {output_image_path}")
+
+
+    def cubemap_convert(self) -> None:
+        
+        for root, _, files in os.walk(self.input_dir):
             for filename in files:
                 
                 # Find Image File: Sky Overlay
@@ -187,8 +130,8 @@ class ResourceConverter(Init):
                     
                     # Construct Output Sub Folder
                     relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
-                    output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
-                    self.pathCheck(output_sub_folder)
+                    output_sub_folder = os.path.join(self.output_dir, relative_sub_folder, 'textures')
+                    self.pathCreateCheck(output_sub_folder)
                     
                     # Open Original Image
                     with Image.open(input_image_path) as original_image:
@@ -212,7 +155,7 @@ class ResourceConverter(Init):
                             # Construct Output Image Path
                             output_image_sub_dir = filename.split('.')[0]
                             output_image_dir = os.path.join(output_sub_folder, 'environment', 'overworld_cubemap', output_image_sub_dir)
-                            self.pathCheck(output_image_dir)
+                            self.pathCreateCheck(output_image_dir)
                             output_image_path = os.path.join(output_image_dir, f"{name}.png")
                             
                             # Save Image
@@ -220,9 +163,9 @@ class ResourceConverter(Init):
                             print(f"[Sky Cubemap] Image cropped and saved into {output_image_path}")
 
 
-    def icons_converter(self) -> None:
-        
-        for root, dirs, files in os.walk(self.input_dir):
+    def icons_convert(self) -> None:
+
+        for root, _, files in os.walk(self.input_dir):
             for filename in files:
                 
                 # Find Image File: icons.png 
@@ -231,8 +174,8 @@ class ResourceConverter(Init):
                     
                     # Construct Output Sub Folder
                     relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
-                    output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
-                    self.pathCheck(output_sub_folder)
+                    output_sub_folder = os.path.join(self.output_dir, relative_sub_folder, 'textures')
+                    self.pathCreateCheck(output_sub_folder)
                     
                     # Open Original Image
                     with Image.open(input_image_path) as original_image:
@@ -332,7 +275,7 @@ class ResourceConverter(Init):
                                 
                                 # Construct Output Image Path
                                 output_image_dir = os.path.join(output_sub_folder, 'ui')
-                                self.pathCheck(output_image_dir)
+                                self.pathCreateCheck(output_image_dir)
                                 output_image_path = os.path.join(output_image_dir, f'{name}.png')
                                 
                                 # Save Image
@@ -343,81 +286,81 @@ class ResourceConverter(Init):
                             print(f"[Icons] Wrong transparent image has deleted: {name}")
 
 
-    def hotbar_converter(self) -> None:
+    def hotbar_convert(self) -> None:
         
-        def _hotbar_convert_output(image_name, root) -> None:
-            
-            # Find Image File: gui.png 
-            if filename == image_name and 'gui' in root:
-                input_image_path = os.path.join(root, filename)
-                
-                # Construct Output Sub Folder
-                relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
-                output_sub_folder = os.path.join(self.output_dir, relative_sub_folder)
-                self.pathCheck(output_sub_folder)
-                
-                # Open Original Image
-                with Image.open(input_image_path) as original_image:
-                    width, height = original_image.size
-                    
-                    if width != height or height > 1024:
-                        raise Exception(f'Wrong Format in {filename}')
-                    
-                    rate = width // 256
-                    offset_width = 20
-                    positions = []
-                    
-                    # line 0
-                    name_0 = [
-                        'hotbar_start_cap',
-                        'hotbar_0', 'hotbar_1', 'hotbar_2',
-                        'hotbar_3', 'hotbar_4', 'hotbar_5',
-                        'hotbar_6', 'hotbar_7', 'hotbar_8',
-                        'hotbar_end_cap'
-                    ]
-                    
-                    for i in range(11):
-                        
-                        x = 1 + (i-1) * offset_width
-                        y = 0
-                        xn = x + offset_width
-                        yn = 22
-                        name = name_0[i]
-                        
-                        if i in [0, 10]:
-                            x = i * 18
-                            xn = x + 1
-                        
-                        positions.append((name, x, y, xn, yn))
-
-                    positions.append(('selected_hotbar_slot', 0, 22, 24, 46))
-                    
-                    # Crop Image
-                    for _, (name, x, y, xn, yn) in enumerate(positions):
-                        box = (x*rate, y*rate, xn*rate, yn*rate)
-                        cropped_image = original_image.crop(box)
-                        
-                        self.transparentCheck(cropped_image)
-                        
-                        # Construct Output Image Path
-                        output_image_dir = os.path.join(output_sub_folder, 'ui')
-                        self.pathCheck(output_image_dir)
-                        output_image_path = os.path.join(output_image_dir, f'{name}.png')
-                        output_image_name = image_name.split('.')[0].capitalize()
-                        
-                        # Save Image
-                        if not os.path.exists(os.path.abspath(output_image_path)):
-                            cropped_image.save(output_image_path)
-                            print(f'[{output_image_name}_Hotbar] Image cropped and saved into {output_image_path}')
-                        else:
-                            print(f'[{output_image_name}_Hotbar] Image existed in {output_image_path}')
-
-        for root, dirs, files in os.walk(self.input_dir):
+        for root, _, files in os.walk(self.input_dir):
             for filename in files:
-                
                 if filename in ['gui.png', 'widgets.png']:
-                    _hotbar_convert_output('gui.png', root)
-                    _hotbar_convert_output('widgets.png', root)
+                    self.horbat_process('gui.png', root, filename)
+                    self.horbat_process('widgets.png', root, filename)
+
+    def horbat_process(self, image_name: str, root: str, filename: str) -> None:
+        
+        # Find Image File: gui.png 
+        if filename == image_name and 'gui' in root:
+            input_image_path = os.path.join(root, filename)
+            
+            # Construct Output Sub Folder
+            relative_sub_folder = self.pathInit(os.path.relpath(root, self.input_dir).split(os.sep)[0])
+            output_sub_folder = os.path.join(self.output_dir, relative_sub_folder, 'textures')
+            self.pathCreateCheck(output_sub_folder)
+            
+            # Open Original Image
+            with Image.open(input_image_path) as original_image:
+                width, height = original_image.size
+                
+                if width != height or height > 1024:
+                    raise Exception(f'Wrong Format in {filename}')
+                
+                rate = width // 256
+                offset_width = 20
+                positions = []
+                
+                # line 0
+                name_0 = [
+                    'hotbar_start_cap',
+                    'hotbar_0', 'hotbar_1', 'hotbar_2',
+                    'hotbar_3', 'hotbar_4', 'hotbar_5',
+                    'hotbar_6', 'hotbar_7', 'hotbar_8',
+                    'hotbar_end_cap'
+                ]
+                
+                for i in range(11):
+                    
+                    x = 1 + (i-1) * offset_width
+                    y = 0
+                    xn = x + offset_width
+                    yn = 22
+                    name = name_0[i]
+                    
+                    if i in [0, 10]:
+                        x = i * 18
+                        xn = x + 1
+                    
+                    positions.append((name, x, y, xn, yn))
+
+                positions.append(('selected_hotbar_slot', 0, 22, 24, 46))
+                
+                # Crop Image
+                for _, (name, x, y, xn, yn) in enumerate(positions):
+                    box = (x*rate, y*rate, xn*rate, yn*rate)
+                    cropped_image = original_image.crop(box)
+                    
+                    self.transparentCheck(cropped_image)
+                    
+                    # Construct Output Image Path
+                    output_image_dir = os.path.join(output_sub_folder, 'ui')
+                    self.pathCreateCheck(output_image_dir)
+                    output_image_path = os.path.join(output_image_dir, f'{name}.png')
+                    output_image_name = image_name.split('.')[0].capitalize()
+                    
+                    # Save Image
+                    if not os.path.exists(os.path.abspath(output_image_path)):
+                        cropped_image.save(output_image_path)
+                        print(f'[{output_image_name}_Hotbar] Image cropped and saved into {output_image_path}')
+                    else:
+                        print(f'[{output_image_name}_Hotbar] Image existed in {output_image_path}')
+
 
 
 if __name__ == '__main__':
@@ -429,15 +372,14 @@ if __name__ == '__main__':
     init.dirInit()
     
     try:
-        rc.textures_converter()  # Common Textures
-        rc.destroystage_converter()  # Destroy Stages
-        rc.icons_converter()  # Gui Icons
-        rc.hotbar_converter()  # Hotbars
-        rc.cubemap_converter()  # Cubemaps
-        
+        rc.textures_convert()  # Common Textures
+        rc.icons_convert()  # Gui Icons
+        rc.hotbar_convert()  # Hotbars
+        rc.cubemap_convert()  # Cubemaps
+    
     except Exception as e:
         print(f"[Error] An error occurred in: {e}")
-        
+    
     finally:
         print("\nAll files have been processed.")
         print("\nJava-Bedrock Resource Pack Converter  Copyright (C) 2024 JiuShang")
